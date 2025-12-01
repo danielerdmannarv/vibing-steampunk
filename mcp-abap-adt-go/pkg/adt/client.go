@@ -310,7 +310,9 @@ type TableColumn struct {
 }
 
 // GetTableContents retrieves data from a database table.
-func (c *Client) GetTableContents(ctx context.Context, tableName string, maxRows int) (*TableContentsResult, error) {
+// Optional sqlQuery can be a full SELECT statement to filter/transform results
+// (e.g., "SELECT * FROM T000 WHERE MANDT = '001'").
+func (c *Client) GetTableContents(ctx context.Context, tableName string, maxRows int, sqlFilter string) (*TableContentsResult, error) {
 	tableName = strings.ToUpper(tableName)
 	if maxRows <= 0 {
 		maxRows = 100
@@ -320,13 +322,48 @@ func (c *Client) GetTableContents(ctx context.Context, tableName string, maxRows
 	params.Set("rowNumber", fmt.Sprintf("%d", maxRows))
 	params.Set("ddicEntityName", tableName)
 
-	resp, err := c.transport.Request(ctx, "/sap/bc/adt/datapreview/ddic", &RequestOptions{
+	opts := &RequestOptions{
 		Method: http.MethodPost,
 		Query:  params,
 		Accept: "application/*",
-	})
+	}
+
+	// Add SQL filter as request body if provided
+	if sqlFilter != "" {
+		opts.Body = []byte(sqlFilter)
+		opts.ContentType = "text/plain"
+	}
+
+	resp, err := c.transport.Request(ctx, "/sap/bc/adt/datapreview/ddic", opts)
 	if err != nil {
 		return nil, fmt.Errorf("getting table contents: %w", err)
+	}
+
+	return parseTableContents(resp.Body)
+}
+
+// RunQuery executes a freestyle SQL query against the SAP database.
+// Example: "SELECT * FROM T000 WHERE MANDT = '001'"
+func (c *Client) RunQuery(ctx context.Context, sqlQuery string, maxRows int) (*TableContentsResult, error) {
+	if sqlQuery == "" {
+		return nil, fmt.Errorf("SQL query is required")
+	}
+	if maxRows <= 0 {
+		maxRows = 100
+	}
+
+	params := url.Values{}
+	params.Set("rowNumber", fmt.Sprintf("%d", maxRows))
+
+	resp, err := c.transport.Request(ctx, "/sap/bc/adt/datapreview/freestyle", &RequestOptions{
+		Method:      http.MethodPost,
+		Query:       params,
+		Accept:      "application/*",
+		Body:        []byte(sqlQuery),
+		ContentType: "text/plain",
+	})
+	if err != nil {
+		return nil, fmt.Errorf("running query: %w", err)
 	}
 
 	return parseTableContents(resp.Body)

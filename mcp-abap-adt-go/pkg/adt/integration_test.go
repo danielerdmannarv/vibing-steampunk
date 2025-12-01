@@ -118,7 +118,7 @@ func TestIntegration_GetTableContents(t *testing.T) {
 	ctx := context.Background()
 
 	// Get contents of T000 (clients table - should exist in any system)
-	contents, err := client.GetTableContents(ctx, "T000", 5)
+	contents, err := client.GetTableContents(ctx, "T000", 5, "")
 	if err != nil {
 		t.Skipf("Could not get T000 contents: %v", err)
 	}
@@ -131,6 +131,48 @@ func TestIntegration_GetTableContents(t *testing.T) {
 	if len(contents.Rows) == 0 {
 		t.Error("No rows returned")
 	} else {
+		t.Logf("First row: %v", contents.Rows[0])
+	}
+}
+
+func TestIntegration_GetTableContentsWithQuery(t *testing.T) {
+	client := getIntegrationClient(t)
+	ctx := context.Background()
+
+	// Get contents of T000 with SQL query (must be full SELECT statement)
+	contents, err := client.GetTableContents(ctx, "T000", 10, "SELECT * FROM T000 WHERE MANDT = '001'")
+	if err != nil {
+		t.Skipf("Could not get T000 contents with query: %v", err)
+	}
+
+	t.Logf("Retrieved %d columns, %d rows (filtered)", len(contents.Columns), len(contents.Rows))
+
+	// All rows should have MANDT = '001'
+	for i, row := range contents.Rows {
+		if mandt, ok := row["MANDT"].(string); ok && mandt != "001" {
+			t.Errorf("Row %d has MANDT = %s, expected 001", i, mandt)
+		}
+	}
+}
+
+func TestIntegration_RunQuery(t *testing.T) {
+	client := getIntegrationClient(t)
+	ctx := context.Background()
+
+	// Run a simple query
+	contents, err := client.RunQuery(ctx, "SELECT MANDT, MTEXT FROM T000", 10)
+	if err != nil {
+		t.Skipf("Could not run query: %v", err)
+	}
+
+	t.Logf("Query returned %d columns, %d rows", len(contents.Columns), len(contents.Rows))
+
+	// Should have exactly 2 columns (MANDT and MTEXT)
+	if len(contents.Columns) != 2 {
+		t.Errorf("Expected 2 columns, got %d", len(contents.Columns))
+	}
+
+	if len(contents.Rows) > 0 {
 		t.Logf("First row: %v", contents.Rows[0])
 	}
 }

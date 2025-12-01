@@ -144,7 +144,22 @@ func (s *Server) registerTools() {
 		mcp.WithNumber("max_rows",
 			mcp.Description("Maximum number of rows to retrieve (default 100)"),
 		),
+		mcp.WithString("sql_query",
+			mcp.Description("Optional full SELECT statement to filter results (e.g., \"SELECT * FROM T000 WHERE MANDT = '001'\")"),
+		),
 	), s.handleGetTableContents)
+
+	// RunQuery
+	s.mcpServer.AddTool(mcp.NewTool("RunQuery",
+		mcp.WithDescription("Execute a freestyle SQL query against the SAP database"),
+		mcp.WithString("sql_query",
+			mcp.Required(),
+			mcp.Description("SQL query to execute (e.g., \"SELECT * FROM T000 WHERE MANDT = '001'\")"),
+		),
+		mcp.WithNumber("max_rows",
+			mcp.Description("Maximum number of rows to retrieve (default 100)"),
+		),
+	), s.handleRunQuery)
 
 	// GetStructure
 	s.mcpServer.AddTool(mcp.NewTool("GetStructure",
@@ -319,9 +334,34 @@ func (s *Server) handleGetTableContents(ctx context.Context, request mcp.CallToo
 		maxRows = int(mr)
 	}
 
-	contents, err := s.adtClient.GetTableContents(ctx, tableName, maxRows)
+	sqlQuery := ""
+	if sq, ok := request.Params.Arguments["sql_query"].(string); ok {
+		sqlQuery = sq
+	}
+
+	contents, err := s.adtClient.GetTableContents(ctx, tableName, maxRows, sqlQuery)
 	if err != nil {
 		return newToolResultError(fmt.Sprintf("Failed to get table contents: %v", err)), nil
+	}
+
+	result, _ := json.MarshalIndent(contents, "", "  ")
+	return mcp.NewToolResultText(string(result)), nil
+}
+
+func (s *Server) handleRunQuery(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	sqlQuery, ok := request.Params.Arguments["sql_query"].(string)
+	if !ok || sqlQuery == "" {
+		return newToolResultError("sql_query is required"), nil
+	}
+
+	maxRows := 100
+	if mr, ok := request.Params.Arguments["max_rows"].(float64); ok && mr > 0 {
+		maxRows = int(mr)
+	}
+
+	contents, err := s.adtClient.RunQuery(ctx, sqlQuery, maxRows)
+	if err != nil {
+		return newToolResultError(fmt.Sprintf("Failed to run query: %v", err)), nil
 	}
 
 	result, _ := json.MarshalIndent(contents, "", "  ")
