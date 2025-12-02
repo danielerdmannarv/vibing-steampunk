@@ -135,6 +135,11 @@ type InactiveObject struct {
 // objectURL is the ADT URL of the object (e.g., "/sap/bc/adt/programs/programs/ZTEST")
 // objectName is the technical name (e.g., "ZTEST")
 func (c *Client) Activate(ctx context.Context, objectURL string, objectName string) (*ActivationResult, error) {
+	// Safety check
+	if err := c.checkSafety(OpActivate, "Activate"); err != nil {
+		return nil, err
+	}
+
 	body := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <adtcore:objectReferences xmlns:adtcore="http://www.sap.com/adt/core">
   <adtcore:objectReference adtcore:uri="%s" adtcore:name="%s"/>
@@ -359,10 +364,12 @@ func parseUnitTestResult(data []byte) (*UnitTestResult, error) {
 		return &UnitTestResult{Classes: []UnitTestClass{}}, nil
 	}
 
-	// Strip namespace prefixes for consistent parsing
+	// Strip namespace prefixes and declarations for consistent parsing
 	xmlStr := string(data)
 	xmlStr = strings.ReplaceAll(xmlStr, "aunit:", "")
 	xmlStr = strings.ReplaceAll(xmlStr, "adtcore:", "")
+	xmlStr = strings.ReplaceAll(xmlStr, ` xmlns:aunit="http://www.sap.com/adt/aunit"`, "")
+	xmlStr = strings.ReplaceAll(xmlStr, ` xmlns:adtcore="http://www.sap.com/adt/core"`, "")
 
 	type stackEntry struct {
 		URI         string `xml:"uri,attr"`
@@ -419,11 +426,8 @@ func parseUnitTestResult(data []byte) (*UnitTestResult, error) {
 	type runResult struct {
 		Programs []program `xml:"program"`
 	}
-	type response struct {
-		RunResult runResult `xml:"runResult"`
-	}
 
-	var resp response
+	var resp runResult
 	if err := xml.Unmarshal([]byte(xmlStr), &resp); err != nil {
 		return nil, fmt.Errorf("parsing unit test results: %w", err)
 	}
@@ -461,7 +465,7 @@ func parseUnitTestResult(data []byte) (*UnitTestResult, error) {
 		return result
 	}
 
-	for _, prog := range resp.RunResult.Programs {
+	for _, prog := range resp.Programs {
 		for _, tc := range prog.TestClasses.Items {
 			class := UnitTestClass{
 				URI:              tc.URI,

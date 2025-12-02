@@ -1111,3 +1111,57 @@ DATA lo_descr TYPE REF TO cl_abap_classdescr.`, programName)
 
 	t.Log("GetTypeHierarchy test passed!")
 }
+
+// --- Package Creation Tests ---
+
+// TestIntegration_CreatePackage tests package creation
+func TestIntegration_CreatePackage(t *testing.T) {
+	client := getIntegrationClient(t)
+	ctx := context.Background()
+
+	timestamp := time.Now().Unix() % 100000
+	packageName := fmt.Sprintf("$ZMCPP_%05d", timestamp)
+	t.Logf("Test package name: %s", packageName)
+
+	// Create package (Responsible will default to current user)
+	err := client.CreateObject(ctx, CreateObjectOptions{
+		ObjectType:  ObjectTypePackage,
+		Name:        packageName,
+		Description: "Test package created via integration test",
+		PackageName: "$TMP", // Packages are created under parent packages
+	})
+	if err != nil {
+		t.Fatalf("Failed to create package: %v", err)
+	}
+
+	t.Logf("Package %s created successfully", packageName)
+
+	// Verify package exists by getting its contents
+	pkg, err := client.GetPackage(ctx, packageName)
+	if err != nil {
+		t.Fatalf("Failed to get created package: %v", err)
+	}
+
+	if pkg.Name != packageName {
+		t.Errorf("Expected package name %s, got %s", packageName, pkg.Name)
+	}
+
+	t.Logf("Package verified: %s", pkg.Name)
+
+	// Cleanup: Lock and delete the package
+	objectURL := fmt.Sprintf("/sap/bc/adt/packages/%s", strings.ToLower(packageName))
+	lock, err := client.LockObject(ctx, objectURL, "MODIFY")
+	if err != nil {
+		t.Logf("Warning: Failed to lock package for cleanup: %v", err)
+		return
+	}
+
+	err = client.DeleteObject(ctx, objectURL, lock.LockHandle, "")
+	if err != nil {
+		client.UnlockObject(ctx, objectURL, lock.LockHandle)
+		t.Logf("Warning: Failed to delete package: %v", err)
+		return
+	}
+
+	t.Logf("Package %s deleted successfully", packageName)
+}

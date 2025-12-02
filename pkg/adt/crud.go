@@ -26,6 +26,13 @@ type LockResult struct {
 // objectURL is the ADT URL of the object (e.g., "/sap/bc/adt/programs/programs/ZTEST")
 // accessMode is typically "MODIFY" for editing
 func (c *Client) LockObject(ctx context.Context, objectURL string, accessMode string) (*LockResult, error) {
+	// Safety check - only check for MODIFY locks, READ locks are safe
+	if accessMode == "" || accessMode == "MODIFY" {
+		if err := c.checkSafety(OpLock, "LockObject"); err != nil {
+			return nil, err
+		}
+	}
+
 	if accessMode == "" {
 		accessMode = "MODIFY"
 	}
@@ -104,6 +111,11 @@ func (c *Client) UnlockObject(ctx context.Context, objectURL string, lockHandle 
 // lockHandle is required (from LockObject)
 // transport is optional (for transportable objects)
 func (c *Client) UpdateSource(ctx context.Context, objectSourceURL string, source string, lockHandle string, transport string) error {
+	// Safety check
+	if err := c.checkSafety(OpUpdate, "UpdateSource"); err != nil {
+		return err
+	}
+
 	params := url.Values{}
 	params.Set("lockHandle", lockHandle)
 	if transport != "" {
@@ -195,10 +207,20 @@ var objectTypes = map[CreatableObjectType]objectTypeInfo{
 		rootName:     "fmodule:abapFunctionModule",
 		namespace:    `xmlns:fmodule="http://www.sap.com/adt/functions/fmodules"`,
 	},
+	ObjectTypePackage: {
+		creationPath: "/sap/bc/adt/packages",
+		rootName:     "pack:package",
+		namespace:    `xmlns:pack="http://www.sap.com/adt/packages"`,
+	},
 }
 
 // CreateObject creates a new ABAP object.
 func (c *Client) CreateObject(ctx context.Context, opts CreateObjectOptions) error {
+	// Safety check
+	if err := c.checkSafety(OpCreate, "CreateObject"); err != nil {
+		return err
+	}
+
 	typeInfo, ok := objectTypes[opts.ObjectType]
 	if !ok {
 		return fmt.Errorf("unsupported object type: %s", opts.ObjectType)
@@ -207,14 +229,28 @@ func (c *Client) CreateObject(ctx context.Context, opts CreateObjectOptions) err
 	opts.Name = strings.ToUpper(opts.Name)
 	opts.PackageName = strings.ToUpper(opts.PackageName)
 
+	// Check package restrictions
+	if err := c.checkPackageSafety(opts.PackageName); err != nil {
+		return err
+	}
+
+	// Additional validation for package creation: only local packages are supported
+	if opts.ObjectType == ObjectTypePackage && !strings.HasPrefix(opts.Name, "$") {
+		return fmt.Errorf("only local packages (starting with $) are supported for creation, got: %s", opts.Name)
+	}
+
 	// Build creation URL
 	creationURL := typeInfo.creationPath
 	if opts.ObjectType == ObjectTypeFunctionMod && opts.ParentName != "" {
 		creationURL = fmt.Sprintf(typeInfo.creationPath, strings.ToUpper(opts.ParentName))
 	}
 
-	// Build request body
-	body := buildCreateObjectBody(opts, typeInfo)
+	// Build request body with current user as default responsible
+	defaultResponsible := c.config.Username
+	if defaultResponsible == "" {
+		defaultResponsible = "DDIC" // Fallback to standard development user
+	}
+	body := buildCreateObjectBody(opts, typeInfo, defaultResponsible)
 
 	params := url.Values{}
 	if opts.Transport != "" {
@@ -234,10 +270,40 @@ func (c *Client) CreateObject(ctx context.Context, opts CreateObjectOptions) err
 	return nil
 }
 
-func buildCreateObjectBody(opts CreateObjectOptions, typeInfo objectTypeInfo) string {
+func buildCreateObjectBody(opts CreateObjectOptions, typeInfo objectTypeInfo, defaultResponsible string) string {
 	responsible := opts.Responsible
 	if responsible == "" {
-		responsible = "DEVELOPER"
+		responsible = defaultResponsible
+	}
+
+	// For packages, use special structure with attributes element
+	// Note: Only local packages (starting with $) are supported (validated in CreateObject)
+	if opts.ObjectType == ObjectTypePackage {
+		return fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
+<%s %s xmlns:adtcore="http://www.sap.com/adt/core"
+  adtcore:description="%s"
+  adtcore:name="%s"
+  adtcore:type="%s"
+  adtcore:responsible="%s">
+  <pack:attributes pack:packageType="development"/>
+  <pack:superPackage adtcore:name="%s" adtcore:type="DEVC/K"/>
+  <pack:applicationComponent/>
+  <pack:transport>
+    <pack:softwareComponent pack:name="LOCAL"/>
+    <pack:transportLayer pack:name=""/>
+  </pack:transport>
+  <pack:translation/>
+  <pack:useAccesses/>
+  <pack:packageInterfaces/>
+  <pack:subPackages/>
+</%s>`,
+			typeInfo.rootName, typeInfo.namespace,
+			escapeXML(opts.Description),
+			opts.Name,
+			opts.ObjectType,
+			responsible,
+			opts.PackageName,
+			typeInfo.rootName)
 	}
 
 	// For function modules, reference the function group
@@ -295,6 +361,11 @@ func escapeXML(s string) string {
 // lockHandle is required (from LockObject)
 // transport is optional (for transportable objects)
 func (c *Client) DeleteObject(ctx context.Context, objectURL string, lockHandle string, transport string) error {
+	// Safety check
+	if err := c.checkSafety(OpDelete, "DeleteObject"); err != nil {
+		return err
+	}
+
 	params := url.Values{}
 	params.Set("lockHandle", lockHandle)
 	if transport != "" {

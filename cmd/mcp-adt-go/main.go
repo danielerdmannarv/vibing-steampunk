@@ -69,6 +69,13 @@ func init() {
 	rootCmd.Flags().String("cookie-file", "", "Path to cookie file in Netscape format")
 	rootCmd.Flags().String("cookie-string", "", "Cookie string (key1=val1; key2=val2)")
 
+	// Safety options
+	rootCmd.Flags().BoolVar(&cfg.ReadOnly, "read-only", false, "Block all write operations (create, update, delete, activate)")
+	rootCmd.Flags().BoolVar(&cfg.BlockFreeSQL, "block-free-sql", false, "Block execution of arbitrary SQL queries via RunQuery")
+	rootCmd.Flags().StringVar(&cfg.AllowedOps, "allowed-ops", "", "Whitelist of allowed operation types (e.g., \"RSQ\" for Read, Search, Query only)")
+	rootCmd.Flags().StringVar(&cfg.DisallowedOps, "disallowed-ops", "", "Blacklist of operation types to block (e.g., \"CDUA\" for Create, Delete, Update, Activate)")
+	rootCmd.Flags().StringSliceVar(&cfg.AllowedPackages, "allowed-packages", nil, "Restrict operations to specific packages (comma-separated, supports wildcards like Z*)")
+
 	// Output options
 	rootCmd.Flags().BoolVarP(&cfg.Verbose, "verbose", "v", false, "Enable verbose output to stderr")
 
@@ -81,6 +88,11 @@ func init() {
 	viper.BindPFlag("insecure", rootCmd.Flags().Lookup("insecure"))
 	viper.BindPFlag("cookie-file", rootCmd.Flags().Lookup("cookie-file"))
 	viper.BindPFlag("cookie-string", rootCmd.Flags().Lookup("cookie-string"))
+	viper.BindPFlag("read-only", rootCmd.Flags().Lookup("read-only"))
+	viper.BindPFlag("block-free-sql", rootCmd.Flags().Lookup("block-free-sql"))
+	viper.BindPFlag("allowed-ops", rootCmd.Flags().Lookup("allowed-ops"))
+	viper.BindPFlag("disallowed-ops", rootCmd.Flags().Lookup("disallowed-ops"))
+	viper.BindPFlag("allowed-packages", rootCmd.Flags().Lookup("allowed-packages"))
 	viper.BindPFlag("verbose", rootCmd.Flags().Lookup("verbose"))
 
 	// Set up environment variable mapping
@@ -112,6 +124,26 @@ func runServer(cmd *cobra.Command, args []string) error {
 			fmt.Fprintf(os.Stderr, "[VERBOSE] Auth: Basic (user: %s)\n", cfg.Username)
 		} else if len(cfg.Cookies) > 0 {
 			fmt.Fprintf(os.Stderr, "[VERBOSE] Auth: Cookie (%d cookies)\n", len(cfg.Cookies))
+		}
+
+		// Safety status
+		if cfg.ReadOnly {
+			fmt.Fprintf(os.Stderr, "[VERBOSE] Safety: READ-ONLY mode enabled\n")
+		}
+		if cfg.BlockFreeSQL {
+			fmt.Fprintf(os.Stderr, "[VERBOSE] Safety: Free SQL queries BLOCKED\n")
+		}
+		if cfg.AllowedOps != "" {
+			fmt.Fprintf(os.Stderr, "[VERBOSE] Safety: Allowed operations: %s\n", cfg.AllowedOps)
+		}
+		if cfg.DisallowedOps != "" {
+			fmt.Fprintf(os.Stderr, "[VERBOSE] Safety: Disallowed operations: %s\n", cfg.DisallowedOps)
+		}
+		if len(cfg.AllowedPackages) > 0 {
+			fmt.Fprintf(os.Stderr, "[VERBOSE] Safety: Allowed packages: %v\n", cfg.AllowedPackages)
+		}
+		if !cfg.ReadOnly && !cfg.BlockFreeSQL && cfg.AllowedOps == "" && cfg.DisallowedOps == "" && len(cfg.AllowedPackages) == 0 {
+			fmt.Fprintf(os.Stderr, "[VERBOSE] Safety: UNRESTRICTED (no safety checks active)\n")
 		}
 	}
 
@@ -171,6 +203,25 @@ func resolveConfig(cmd *cobra.Command) {
 	// Verbose: flag > SAP_VERBOSE env
 	if !cmd.Flags().Changed("verbose") {
 		cfg.Verbose = viper.GetBool("VERBOSE")
+	}
+
+	// Safety options: flag > SAP_* env
+	if !cmd.Flags().Changed("read-only") {
+		cfg.ReadOnly = viper.GetBool("READ_ONLY")
+	}
+	if !cmd.Flags().Changed("block-free-sql") {
+		cfg.BlockFreeSQL = viper.GetBool("BLOCK_FREE_SQL")
+	}
+	if !cmd.Flags().Changed("allowed-ops") {
+		cfg.AllowedOps = viper.GetString("ALLOWED_OPS")
+	}
+	if !cmd.Flags().Changed("disallowed-ops") {
+		cfg.DisallowedOps = viper.GetString("DISALLOWED_OPS")
+	}
+	if !cmd.Flags().Changed("allowed-packages") {
+		if pkgs := viper.GetStringSlice("ALLOWED_PACKAGES"); len(pkgs) > 0 {
+			cfg.AllowedPackages = pkgs
+		}
 	}
 }
 

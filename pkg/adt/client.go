@@ -33,6 +33,16 @@ func NewClientWithTransport(cfg *Config, transport *Transport) *Client {
 	}
 }
 
+// checkSafety checks if an operation is allowed by the safety configuration.
+func (c *Client) checkSafety(op OperationType, opName string) error {
+	return c.config.Safety.CheckOperation(op, opName)
+}
+
+// checkPackageSafety checks if operations on a package are allowed.
+func (c *Client) checkPackageSafety(pkg string) error {
+	return c.config.Safety.CheckPackage(pkg)
+}
+
 // --- Search Operations ---
 
 // SearchObject searches for ABAP objects by name pattern.
@@ -211,6 +221,15 @@ func (c *Client) GetPackage(ctx context.Context, packageName string) (*PackageCo
 
 // parsePackageNodeStructure parses the nodestructure XML response into PackageContent.
 func parsePackageNodeStructure(data []byte, packageName string) (*PackageContent, error) {
+	// Handle empty response (newly created packages may return no content)
+	if len(data) == 0 {
+		return &PackageContent{
+			Name:        packageName,
+			Objects:     []PackageObject{},
+			SubPackages: []string{},
+		}, nil
+	}
+
 	type nodeData struct {
 		TreeContent struct {
 			Nodes []struct {
@@ -345,6 +364,11 @@ func (c *Client) GetTableContents(ctx context.Context, tableName string, maxRows
 // RunQuery executes a freestyle SQL query against the SAP database.
 // Example: "SELECT * FROM T000 WHERE MANDT = '001'"
 func (c *Client) RunQuery(ctx context.Context, sqlQuery string, maxRows int) (*TableContentsResult, error) {
+	// Safety check - free SQL can be dangerous
+	if err := c.checkSafety(OpFreeSQL, "RunQuery"); err != nil {
+		return nil, err
+	}
+
 	if sqlQuery == "" {
 		return nil, fmt.Errorf("SQL query is required")
 	}

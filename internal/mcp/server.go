@@ -33,6 +33,13 @@ type Config struct {
 
 	// Verbose output
 	Verbose bool
+
+	// Safety configuration
+	ReadOnly        bool
+	BlockFreeSQL    bool
+	AllowedOps      string
+	DisallowedOps   string
+	AllowedPackages []string
 }
 
 // NewServer creates a new MCP server for ABAP ADT tools.
@@ -51,6 +58,25 @@ func NewServer(cfg *Config) *Server {
 	if cfg.Verbose {
 		opts = append(opts, adt.WithVerbose())
 	}
+
+	// Configure safety settings
+	safety := adt.UnrestrictedSafetyConfig() // Default: unrestricted for backwards compatibility
+	if cfg.ReadOnly {
+		safety.ReadOnly = true
+	}
+	if cfg.BlockFreeSQL {
+		safety.BlockFreeSQL = true
+	}
+	if cfg.AllowedOps != "" {
+		safety.AllowedOps = cfg.AllowedOps
+	}
+	if cfg.DisallowedOps != "" {
+		safety.DisallowedOps = cfg.DisallowedOps
+	}
+	if len(cfg.AllowedPackages) > 0 {
+		safety.AllowedPackages = cfg.AllowedPackages
+	}
+	opts = append(opts, adt.WithSafety(safety))
 
 	adtClient := adt.NewClient(cfg.BaseURL, cfg.Username, cfg.Password, opts...)
 
@@ -317,7 +343,7 @@ func (s *Server) registerTools() {
 		mcp.WithDescription("Create a new ABAP object"),
 		mcp.WithString("object_type",
 			mcp.Required(),
-			mcp.Description("Object type: PROG/P (program), CLAS/OC (class), INTF/OI (interface), PROG/I (include), FUGR/F (function group), FUGR/FF (function module)"),
+			mcp.Description("Object type: PROG/P (program), CLAS/OC (class), INTF/OI (interface), PROG/I (include), FUGR/F (function group), FUGR/FF (function module), DEVC/K (package)"),
 		),
 		mcp.WithString("name",
 			mcp.Required(),
