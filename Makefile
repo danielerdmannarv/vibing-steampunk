@@ -84,9 +84,9 @@ build-windows: ## Build for Windows (amd64, arm64, 386)
 	done
 
 # WSL deployment directory
-WINDOWS_DEPLOY_DIR=/mnt/c/bin/vibing-steamer
+WINDOWS_DEPLOY_DIR=/mnt/c/bin/vibing-steampunk
 
-deploy-windows: ## Build Windows amd64 and deploy to /mnt/c/bin/vibing-steamer/
+deploy-windows: ## Build Windows amd64 and deploy to /mnt/c/bin/vibing-steampunk/
 	@mkdir -p $(BUILD_DIR)
 	@echo "Building Windows amd64 binary..."
 	GOOS=windows GOARCH=amd64 $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe $(CMD_DIR)
