@@ -90,6 +90,20 @@ Comparison of ADT capabilities across implementations:
 
 **Legend:** Y = Full support, P = Partial, N = Not implemented, - = Not applicable
 
+## Important: SQL Query Limitations
+
+The `RunQuery` and `GetTableContents` tools use **ABAP SQL syntax**, not standard SQL:
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| `ORDER BY col ASCENDING` | **Works** | ABAP keyword |
+| `ORDER BY col DESCENDING` | **Works** | ABAP keyword |
+| `ORDER BY col ASC` | **FAILS** | Use ASCENDING instead |
+| `ORDER BY col DESC` | **FAILS** | Use DESCENDING instead |
+| `LIMIT n` | **FAILS** | Use `max_rows` parameter |
+
+See [MCP_USAGE.md](MCP_USAGE.md) for complete SQL syntax guide.
+
 ## Documentation for AI Agents
 
 **[MCP Usage Guide](MCP_USAGE.md)** - Machine-friendly reference for AI assistants using this MCP server. Includes:
@@ -139,7 +153,7 @@ These tools replace 11 granular read/write operations with intelligent parameter
 
 | Tool | Description | Replaces |
 |------|-------------|----------|
-| `GetSource` | Unified read tool for any ABAP source object. Parameters: `type` (PROG/CLAS/INTF/FUNC/FUGR/INCL), `name`, optional `parent` (for FUNC), optional `include` (for CLAS: definitions/implementations/testclasses) | GetProgram, GetClass, GetInterface, GetFunction, GetFunctionGroup, GetInclude, GetClassInclude |
+| `GetSource` | Unified read tool for any ABAP source object. Parameters: `type` (PROG/CLAS/INTF/FUNC/FUGR/INCL/DDLS/MSAG), `name`, optional `parent` (for FUNC), optional `include` (for CLAS: definitions/implementations/testclasses). DDLS returns CDS source, MSAG returns JSON with all messages. | GetProgram, GetClass, GetInterface, GetFunction, GetFunctionGroup, GetInclude, GetClassInclude |
 | `WriteSource` | Unified write tool with auto-upsert (detects create vs update). Parameters: `type`, `name`, `source`, `mode` (update/create/upsert), `options` (description, package, test_source, transport) | WriteProgram, WriteClass, CreateAndActivateProgram, CreateClassWithTests |
 
 **Benefits:** Reduces token overhead by 70%, simplifies tool selection, extensible for new object types.
@@ -544,9 +558,10 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed architecture documentation.
 ### Planned Features
 - [ ] Transport Management (create, release, add objects)
 - [ ] ATC (ABAP Test Cockpit) integration
-- [ ] CDS View source read and annotations
+- [x] CDS View source read (DDLS) - via `GetSource(type=DDLS)`
+- [ ] CDS annotations parsing
 - [ ] RAP/BDEF support (behavior definitions)
-- [ ] Message class support
+- [x] Message class support (MSAG) - via `GetSource(type=MSAG)`
 - [ ] Domain/Data element support
 
 ### Future Considerations

@@ -258,16 +258,16 @@ func (s *Server) registerTools(mode string) {
 	// GetTableContents
 	if shouldRegister("GetTableContents") {
 		s.mcpServer.AddTool(mcp.NewTool("GetTableContents",
-		mcp.WithDescription("Retrieve contents of an ABAP table"),
+		mcp.WithDescription("Retrieve contents of an ABAP table. For simple queries use table_name + max_rows. For filtered queries use sql_query parameter with ABAP SQL syntax (use ASCENDING/DESCENDING, not ASC/DESC)."),
 		mcp.WithString("table_name",
 			mcp.Required(),
 			mcp.Description("Name of the ABAP table"),
 		),
 		mcp.WithNumber("max_rows",
-			mcp.Description("Maximum number of rows to retrieve (default 100)"),
+			mcp.Description("Maximum number of rows to retrieve (default 100). Use this instead of SQL LIMIT clause"),
 		),
 		mcp.WithString("sql_query",
-			mcp.Description("Optional full SELECT statement to filter results (e.g., \"SELECT * FROM T000 WHERE MANDT = '001'\")"),
+			mcp.Description("Optional ABAP SQL SELECT statement. Uses ABAP syntax: ASCENDING/DESCENDING work, ASC/DESC fail. Example: SELECT * FROM T000 WHERE MANDT = '001' ORDER BY MANDT DESCENDING"),
 		),
 	), s.handleGetTableContents)
 	}
@@ -276,13 +276,13 @@ func (s *Server) registerTools(mode string) {
 	// RunQuery
 	if shouldRegister("RunQuery") {
 		s.mcpServer.AddTool(mcp.NewTool("RunQuery",
-		mcp.WithDescription("Execute a freestyle SQL query against the SAP database"),
+		mcp.WithDescription("Execute a freestyle SQL query against the SAP database. IMPORTANT: Uses ABAP SQL syntax, NOT standard SQL. Use ASCENDING/DESCENDING instead of ASC/DESC. Use max_rows parameter instead of LIMIT. GROUP BY and WHERE work normally."),
 		mcp.WithString("sql_query",
 			mcp.Required(),
-			mcp.Description("SQL query to execute (e.g., \"SELECT * FROM T000 WHERE MANDT = '001'\")"),
+			mcp.Description("ABAP SQL query. Example: SELECT carrid, COUNT(*) as cnt FROM sflight GROUP BY carrid ORDER BY cnt DESCENDING. Note: ASC/DESC keywords fail - use ASCENDING/DESCENDING"),
 		),
 		mcp.WithNumber("max_rows",
-			mcp.Description("Maximum number of rows to retrieve (default 100)"),
+			mcp.Description("Maximum number of rows to retrieve (default 100). Use this instead of SQL LIMIT clause"),
 		),
 	), s.handleRunQuery)
 	}
@@ -291,10 +291,10 @@ func (s *Server) registerTools(mode string) {
 	// GetCDSDependencies
 	if shouldRegister("GetCDSDependencies") {
 		s.mcpServer.AddTool(mcp.NewTool("GetCDSDependencies",
-		mcp.WithDescription("Retrieve CDS view dependency tree showing all dependent objects (tables, views, associations)"),
+		mcp.WithDescription("Retrieve CDS view FORWARD dependencies (tables/views this CDS reads FROM). Returns tree of base objects. Does NOT return reverse dependencies (where-used). Use with GetSource(DDLS) to read CDS source code."),
 		mcp.WithString("ddls_name",
 			mcp.Required(),
-			mcp.Description("CDS DDL source name (e.g., 'I_SalesOrder', 'ZDDL_MY_VIEW')"),
+			mcp.Description("CDS DDL source name (e.g., 'ZRAY_00_I_DOC_NODE_00'). Use SearchObject to find CDS views first."),
 		),
 		mcp.WithString("dependency_level",
 			mcp.Description("Level of dependency resolution: 'unit' (direct only) or 'hierarchy' (recursive). Default: 'hierarchy'"),
@@ -2116,7 +2116,7 @@ func (s *Server) registerGetSource() {
 		mcp.WithDescription("Unified tool for reading ABAP source code across different object types. Replaces GetProgram, GetClass, GetInterface, GetFunction, GetInclude, GetFunctionGroup, GetClassInclude."),
 		mcp.WithString("object_type",
 			mcp.Required(),
-			mcp.Description("Object type: PROG (program), CLAS (class), INTF (interface), FUNC (function module), FUGR (function group), INCL (include)"),
+			mcp.Description("Object type: PROG (program), CLAS (class), INTF (interface), FUNC (function module), FUGR (function group), INCL (include), DDLS (CDS DDL source), MSAG (message class)"),
 		),
 		mcp.WithString("name",
 			mcp.Required(),

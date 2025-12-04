@@ -196,6 +196,62 @@ func (c *Client) GetInclude(ctx context.Context, includeName string) (string, er
 	return string(resp.Body), nil
 }
 
+// --- CDS DDL Source Operations ---
+
+// GetDDLS retrieves the source code of a CDS DDL source (CDS view definition).
+func (c *Client) GetDDLS(ctx context.Context, ddlsName string) (string, error) {
+	ddlsName = strings.ToUpper(ddlsName)
+
+	sourcePath := fmt.Sprintf("/sap/bc/adt/ddic/ddl/sources/%s/source/main", ddlsName)
+	resp, err := c.transport.Request(ctx, sourcePath, &RequestOptions{
+		Method: http.MethodGet,
+		Accept: "text/plain",
+	})
+	if err != nil {
+		return "", fmt.Errorf("getting DDLS source: %w", err)
+	}
+
+	return string(resp.Body), nil
+}
+
+// --- Message Class Operations ---
+
+// MessageClassMessage represents a single message in a message class
+type MessageClassMessage struct {
+	Number string `xml:"msgno,attr" json:"number"`
+	Text   string `xml:"msgtext,attr" json:"text"`
+}
+
+// MessageClass represents an ABAP message class with all its messages
+type MessageClass struct {
+	Name        string                `xml:"name,attr" json:"name"`
+	Description string                `xml:"description,attr" json:"description"`
+	Messages    []MessageClassMessage `xml:"messages" json:"messages"`
+}
+
+// GetMessageClass retrieves all messages from an ABAP message class.
+func (c *Client) GetMessageClass(ctx context.Context, msgClassName string) (*MessageClass, error) {
+	msgClassName = strings.ToUpper(msgClassName)
+
+	path := fmt.Sprintf("/sap/bc/adt/messageclass/%s", strings.ToLower(msgClassName))
+	resp, err := c.transport.Request(ctx, path, &RequestOptions{
+		Method: http.MethodGet,
+		Accept: "application/xml",
+	})
+	if err != nil {
+		return nil, fmt.Errorf("getting message class: %w", err)
+	}
+
+	// Parse XML into struct
+	var mc MessageClass
+	if err := xml.Unmarshal(resp.Body, &mc); err != nil {
+		return nil, fmt.Errorf("parsing message class XML: %w", err)
+	}
+
+	mc.Name = msgClassName
+	return &mc, nil
+}
+
 // --- Package Operations ---
 
 // GetPackage retrieves the contents of a package using the nodestructure API.

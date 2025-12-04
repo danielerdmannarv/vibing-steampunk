@@ -1567,6 +1567,8 @@ type GetSourceOptions struct {
 //   - FUNC: Function modules (name = function module name, parent = function group name)
 //   - FUGR: Function groups (name = function group name)
 //   - INCL: Includes (name = include name)
+//   - DDLS: CDS DDL sources (name = DDL source name)
+//   - MSAG: Message classes (name = message class name) - returns JSON with all messages
 func (c *Client) GetSource(ctx context.Context, objectType, name string, opts *GetSourceOptions) (string, error) {
 	// Safety check for read operations
 	if err := c.checkSafety(OpRead, "GetSource"); err != nil {
@@ -1615,8 +1617,24 @@ func (c *Client) GetSource(ctx context.Context, objectType, name string, opts *G
 	case "INCL":
 		return c.GetInclude(ctx, name)
 
+	case "DDLS":
+		return c.GetDDLS(ctx, name)
+
+	case "MSAG":
+		// GetMessageClass returns JSON metadata (message list), not source
+		mc, err := c.GetMessageClass(ctx, name)
+		if err != nil {
+			return "", err
+		}
+		// Serialize to JSON for display
+		data, err := json.Marshal(mc)
+		if err != nil {
+			return "", fmt.Errorf("failed to serialize message class: %w", err)
+		}
+		return string(data), nil
+
 	default:
-		return "", fmt.Errorf("unsupported object type: %s (supported: PROG, CLAS, INTF, FUNC, FUGR, INCL)", objectType)
+		return "", fmt.Errorf("unsupported object type: %s (supported: PROG, CLAS, INTF, FUNC, FUGR, INCL, DDLS, MSAG)", objectType)
 	}
 }
 

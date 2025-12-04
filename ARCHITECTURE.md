@@ -2,7 +2,203 @@
 
 This document describes the architecture of the Go-native MCP server for SAP ADT.
 
-## Overview
+## High-Level Overview
+
+```mermaid
+flowchart TB
+    subgraph Client["MCP Client (Claude/AI)"]
+        AI[AI Assistant]
+    end
+
+    subgraph MCP["MCP Server (vsp)"]
+        direction TB
+        Server[server.go<br/>Tool Registration]
+
+        subgraph Modes["Operation Modes"]
+            Focused[Focused Mode<br/>19 Tools]
+            Expert[Expert Mode<br/>45 Tools]
+        end
+
+        Server --> Modes
+    end
+
+    subgraph ADT["pkg/adt/ - ADT Client Library"]
+        direction TB
+        Client2[client.go<br/>Read Operations]
+        CRUD[crud.go<br/>Lock/Create/Update/Delete]
+        Dev[devtools.go<br/>SyntaxCheck/Activate/UnitTests]
+        Intel[codeintel.go<br/>FindDef/FindRefs/Completion]
+        Workflow[workflows.go<br/>GetSource/WriteSource/Grep*]
+        CDS[cds.go<br/>GetCDSDependencies]
+        HTTP[http.go<br/>CSRF/Sessions/Auth]
+    end
+
+    subgraph SAP["SAP System"]
+        ADTApi[ADT REST API<br/>/sap/bc/adt/*]
+    end
+
+    AI <-->|JSON-RPC/stdio| Server
+    Modes --> Client2
+    Modes --> CRUD
+    Modes --> Dev
+    Modes --> Intel
+    Modes --> Workflow
+    Modes --> CDS
+    Client2 --> HTTP
+    CRUD --> HTTP
+    Dev --> HTTP
+    Intel --> HTTP
+    Workflow --> HTTP
+    CDS --> HTTP
+    HTTP <-->|HTTPS| ADTApi
+```
+
+## Tool Categories (Focused Mode)
+
+```mermaid
+flowchart LR
+    subgraph Read["READ (6 tools)"]
+        GS[GetSource<br/>PROG/CLAS/INTF/<br/>FUNC/FUGR/INCL/<br/>DDLS/MSAG]
+        GT[GetTable]
+        GTC[GetTableContents]
+        RQ[RunQuery]
+        GP[GetPackage]
+        CD[GetCDSDependencies]
+    end
+
+    subgraph Search["SEARCH (3 tools)"]
+        SO[SearchObject]
+        GO[GrepObjects]
+        GPK[GrepPackages]
+    end
+
+    subgraph Write["WRITE (3 tools)"]
+        WS[WriteSource]
+        ES[EditSource]
+        IF[ImportFromFile]
+    end
+
+    subgraph Navigate["NAVIGATE (2 tools)"]
+        FD[FindDefinition]
+        FR[FindReferences]
+    end
+
+    subgraph Test["TEST (2 tools)"]
+        SC[SyntaxCheck]
+        UT[RunUnitTests]
+    end
+
+    subgraph Advanced["ADVANCED (3 tools)"]
+        LO[LockObject]
+        UO[UnlockObject]
+        EF[ExportToFile]
+    end
+```
+
+## Data Flow: Read Operation
+
+```mermaid
+sequenceDiagram
+    participant AI as AI Agent
+    participant MCP as MCP Server
+    participant ADT as ADT Client
+    participant HTTP as HTTP Transport
+    participant SAP as SAP System
+
+    AI->>MCP: GetSource(DDLS, "ZRAY_VIEW")
+    MCP->>ADT: client.GetSource(ctx, "DDLS", "ZRAY_VIEW")
+    ADT->>ADT: Route to GetDDLS()
+    ADT->>HTTP: GET /sap/bc/adt/ddic/ddl/sources/ZRAY_VIEW/source/main
+    HTTP->>HTTP: Add CSRF token
+    HTTP->>HTTP: Add session cookies
+    HTTP->>SAP: HTTPS Request
+    SAP-->>HTTP: CDS Source Code
+    HTTP-->>ADT: Response body
+    ADT-->>MCP: Source string
+    MCP-->>AI: Tool result
+```
+
+## Data Flow: Write Operation (EditSource)
+
+```mermaid
+sequenceDiagram
+    participant AI as AI Agent
+    participant MCP as MCP Server
+    participant ADT as ADT Client
+    participant SAP as SAP System
+
+    AI->>MCP: EditSource(url, old, new)
+    MCP->>ADT: EditSource(ctx, url, old, new)
+
+    Note over ADT: Step 1: Get current source
+    ADT->>SAP: GET /source/main
+    SAP-->>ADT: Current source
+
+    Note over ADT: Step 2: Find & replace
+    ADT->>ADT: Check uniqueness
+    ADT->>ADT: Replace old → new
+
+    Note over ADT: Step 3: Syntax check
+    ADT->>SAP: POST /syntaxcheck
+    SAP-->>ADT: OK / Errors
+
+    alt Syntax Errors
+        ADT-->>MCP: Error: Syntax errors
+        MCP-->>AI: Abort, no changes
+    else Syntax OK
+        Note over ADT: Step 4: Lock
+        ADT->>SAP: POST /lock
+        SAP-->>ADT: Lock handle
+
+        Note over ADT: Step 5: Update
+        ADT->>SAP: PUT /source/main
+        SAP-->>ADT: OK
+
+        Note over ADT: Step 6: Unlock
+        ADT->>SAP: POST /unlock
+
+        Note over ADT: Step 7: Activate
+        ADT->>SAP: POST /activate
+        SAP-->>ADT: OK
+
+        ADT-->>MCP: Success
+        MCP-->>AI: Edited and activated
+    end
+```
+
+## Object Type Routing (GetSource)
+
+```mermaid
+flowchart TD
+    GS[GetSource] --> TYPE{object_type?}
+
+    TYPE -->|PROG| PROG[GetProgram<br/>/programs/programs/NAME]
+    TYPE -->|CLAS| CLAS{include?}
+    CLAS -->|none| CLASM[GetClassSource<br/>/oo/classes/NAME]
+    CLAS -->|definitions| CLASD[GetClassInclude<br/>/includes/definitions]
+    CLAS -->|implementations| CLASI[GetClassInclude<br/>/includes/implementations]
+    CLAS -->|testclasses| CLAST[GetClassInclude<br/>/includes/testclasses]
+    TYPE -->|INTF| INTF[GetInterface<br/>/oo/interfaces/NAME]
+    TYPE -->|FUNC| FUNC[GetFunction<br/>/functions/groups/PARENT/fmodules/NAME]
+    TYPE -->|FUGR| FUGR[GetFunctionGroup<br/>JSON metadata]
+    TYPE -->|INCL| INCL[GetInclude<br/>/programs/includes/NAME]
+    TYPE -->|DDLS| DDLS[GetDDLS<br/>/ddic/ddl/sources/NAME]
+    TYPE -->|MSAG| MSAG[GetMessageClass<br/>JSON messages]
+
+    PROG --> RET[Return source/JSON]
+    CLASM --> RET
+    CLASD --> RET
+    CLASI --> RET
+    CLAST --> RET
+    INTF --> RET
+    FUNC --> RET
+    FUGR --> RET
+    INCL --> RET
+    DDLS --> RET
+    MSAG --> RET
+```
+
+## ASCII Overview (for terminals without Mermaid)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐

@@ -39,28 +39,54 @@ func (c *Client) GetCDSDependencies(ctx context.Context, ddlsName string, opts C
 		opts.DependencyLevel = "hierarchy"
 	}
 
-	// Build query parameters
-	endpoint := fmt.Sprintf("/sap/bc/adt/ddic/ddl/sources/%s/dependencies?dependency_level=%s&with_associations=%v",
-		url.PathEscape(ddlsName), opts.DependencyLevel, opts.WithAssociations)
-
-	if opts.ContextPackage != "" {
-		endpoint += fmt.Sprintf("&contextPackage=%s", url.QueryEscape(opts.ContextPackage))
-	}
+	// Use /sap/bc/adt/testcodegen/dependencies/doubledata endpoint
+	// This returns the table/view dependencies for a CDS view (designed for test doubles)
+	// Alternative endpoints like /sap/bc/adt/cds/dependencies don't exist on all systems
+	endpoint := fmt.Sprintf("/sap/bc/adt/testcodegen/dependencies/doubledata?ddlsourceName=%s",
+		url.QueryEscape(ddlsName))
 
 	resp, err := c.transport.Request(ctx, endpoint, &RequestOptions{
 		Method: "GET",
-		Accept: "application/*",
+		Accept: "application/vnd.sap.adt.codegen.data.v1+xml",
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get CDS dependencies: %w", err)
 	}
 
-	var root CDSDependencyNode
-	if err := xml.Unmarshal(resp.Body, &root); err != nil {
+	// Parse the test double data response
+	type cdsDouble struct {
+		Name string `xml:"double_name,attr"`
+		Type string `xml:"double_type,attr"`
+	}
+	type cdsUnderTest struct {
+		Name    string      `xml:"cds_name,attr"`
+		Doubles []cdsDouble `xml:"doublelist>double"`
+	}
+	type cdsToBeTested struct {
+		CDS cdsUnderTest `xml:"cdsundertest"`
+	}
+
+	var parsed cdsToBeTested
+	if err := xml.Unmarshal(resp.Body, &parsed); err != nil {
 		return nil, fmt.Errorf("failed to parse XML response: %w", err)
 	}
 
-	return &root, nil
+	// Convert to CDSDependencyNode structure
+	root := &CDSDependencyNode{
+		Name:     parsed.CDS.Name,
+		Type:     "CDS_VIEW",
+		Children: make([]CDSDependencyNode, 0, len(parsed.CDS.Doubles)),
+	}
+
+	for _, d := range parsed.CDS.Doubles {
+		root.Children = append(root.Children, CDSDependencyNode{
+			Name:     d.Name,
+			Type:     d.Type,
+			Relation: "FROM",
+		})
+	}
+
+	return root, nil
 }
 
 // FlattenDependencies returns a flat list of all dependencies (BFS traversal)
