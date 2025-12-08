@@ -2,6 +2,7 @@ package adt
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -305,6 +306,30 @@ func TestAPIError_Error(t *testing.T) {
 	}
 	if !strings.Contains(errStr, "/sap/bc/adt/programs/test") {
 		t.Error("Error string should contain path")
+	}
+}
+
+func TestIsNotFoundError(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"nil error", nil, false},
+		{"404 error", &APIError{StatusCode: 404, Message: "Not found"}, true},
+		{"400 error", &APIError{StatusCode: 400, Message: "Bad request"}, false},
+		{"500 error", &APIError{StatusCode: 500, Message: "Server error"}, false},
+		{"wrapped 404", fmt.Errorf("wrapped: %w", &APIError{StatusCode: 404}), true},
+		{"wrapped 500", fmt.Errorf("wrapped: %w", &APIError{StatusCode: 500}), false},
+		{"non-API error", fmt.Errorf("generic error"), false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := IsNotFoundError(tt.err); got != tt.want {
+				t.Errorf("IsNotFoundError() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
 

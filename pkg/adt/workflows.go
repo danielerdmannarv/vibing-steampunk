@@ -805,21 +805,26 @@ func (c *Client) DeployFromFile(ctx context.Context, filePath, packageName, tran
 	})
 
 	if err != nil {
-		// Object doesn't exist
-		if isClassInclude {
-			// For class includes, the parent class must exist
-			return &DeployResult{
-				FilePath:   filePath,
-				ObjectURL:  objectURL,
-				ObjectName: info.ObjectName,
-				ObjectType: fmt.Sprintf("%s.%s", info.ObjectType, info.ClassIncludeType),
-				Success:    false,
-				Errors:     []string{"parent class does not exist"},
-				Message:    fmt.Sprintf("Cannot deploy class include: parent class %s does not exist. Create the class first.", info.ObjectName),
-			}, nil
+		// Check if it's specifically a 404 Not Found error
+		if IsNotFoundError(err) {
+			// Object doesn't exist
+			if isClassInclude {
+				// For class includes, the parent class must exist
+				return &DeployResult{
+					FilePath:   filePath,
+					ObjectURL:  objectURL,
+					ObjectName: info.ObjectName,
+					ObjectType: fmt.Sprintf("%s.%s", info.ObjectType, info.ClassIncludeType),
+					Success:    false,
+					Errors:     []string{"parent class does not exist"},
+					Message:    fmt.Sprintf("Cannot deploy class include: parent class %s does not exist. Create the class first.", info.ObjectName),
+				}, nil
+			}
+			// Regular object - create it
+			return c.CreateFromFile(ctx, filePath, packageName, transport)
 		}
-		// Regular object - create it
-		return c.CreateFromFile(ctx, filePath, packageName, transport)
+		// For other errors (session timeout, network issues, etc.), proceed with update
+		// The parent class might still exist - let UpdateFromFile handle it
 	}
 
 	// Object exists - update it (handles both regular objects and class includes)

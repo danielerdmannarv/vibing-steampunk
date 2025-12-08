@@ -3,6 +3,7 @@ package adt
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -393,4 +394,21 @@ type APIError struct {
 
 func (e *APIError) Error() string {
 	return fmt.Sprintf("ADT API error: status %d at %s: %s", e.StatusCode, e.Path, e.Message)
+}
+
+// IsNotFound returns true if the error is a 404 Not Found error.
+func (e *APIError) IsNotFound() bool {
+	return e.StatusCode == http.StatusNotFound
+}
+
+// IsNotFoundError checks if an error is an API 404 Not Found error.
+func IsNotFoundError(err error) bool {
+	if err == nil {
+		return false
+	}
+	var apiErr *APIError
+	if errors.As(err, &apiErr) {
+		return apiErr.IsNotFound()
+	}
+	return false
 }
