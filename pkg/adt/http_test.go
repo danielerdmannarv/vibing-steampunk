@@ -333,6 +333,32 @@ func TestIsNotFoundError(t *testing.T) {
 	}
 }
 
+func TestIsSessionExpiredError(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"nil error", nil, false},
+		{"404 error", &APIError{StatusCode: 404, Message: "Not found"}, false},
+		{"400 ICMENOSESSION", &APIError{StatusCode: 400, Message: "ICMENOSESSION"}, true},
+		{"400 Session Timed Out", &APIError{StatusCode: 400, Message: "Session Timed Out"}, true},
+		{"400 session no longer exists", &APIError{StatusCode: 400, Message: "Session no longer exists"}, true},
+		{"400 other error", &APIError{StatusCode: 400, Message: "Bad request"}, false},
+		{"500 session timeout text", &APIError{StatusCode: 500, Message: "ICMENOSESSION"}, false},
+		{"wrapped session expired", fmt.Errorf("wrapped: %w", &APIError{StatusCode: 400, Message: "ICMENOSESSION"}), true},
+		{"non-API error", fmt.Errorf("generic error"), false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := IsSessionExpiredError(tt.err); got != tt.want {
+				t.Errorf("IsSessionExpiredError() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestTransport_Request_CookieAuth(t *testing.T) {
 	mock := &mockHTTPClient{
 		responses: []*http.Response{

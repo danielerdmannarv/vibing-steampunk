@@ -155,11 +155,26 @@ func (t *Transport) Request(ctx context.Context, path string, opts *RequestOptio
 
 	// Check for error status codes
 	if resp.StatusCode >= 400 {
-		return nil, &APIError{
+		apiErr := &APIError{
 			StatusCode: resp.StatusCode,
 			Message:    string(body),
 			Path:       path,
 		}
+
+		// Handle session timeout - refresh session and retry once
+		if apiErr.IsSessionExpired() {
+			// Clear cached CSRF token and session ID
+			t.setCSRFToken("")
+			t.setSessionID("")
+			// Fetch new CSRF token (this establishes a new session)
+			if err := t.fetchCSRFToken(ctx); err != nil {
+				return nil, fmt.Errorf("refreshing session after timeout: %w", err)
+			}
+			// Retry the request
+			return t.retryRequest(ctx, path, opts)
+		}
+
+		return nil, apiErr
 	}
 
 	return &Response{
@@ -401,6 +416,18 @@ func (e *APIError) IsNotFound() bool {
 	return e.StatusCode == http.StatusNotFound
 }
 
+// IsSessionExpired returns true if the error indicates session timeout.
+// SAP returns 400 with ICMENOSESSION or "Session Timed Out" when session expires.
+func (e *APIError) IsSessionExpired() bool {
+	if e.StatusCode != http.StatusBadRequest {
+		return false
+	}
+	msg := strings.ToLower(e.Message)
+	return strings.Contains(msg, "icmenosession") ||
+		strings.Contains(msg, "session timed out") ||
+		strings.Contains(msg, "session no longer exists")
+}
+
 // IsNotFoundError checks if an error is an API 404 Not Found error.
 func IsNotFoundError(err error) bool {
 	if err == nil {
@@ -409,6 +436,18 @@ func IsNotFoundError(err error) bool {
 	var apiErr *APIError
 	if errors.As(err, &apiErr) {
 		return apiErr.IsNotFound()
+	}
+	return false
+}
+
+// IsSessionExpiredError checks if an error indicates SAP session timeout.
+func IsSessionExpiredError(err error) bool {
+	if err == nil {
+		return false
+	}
+	var apiErr *APIError
+	if errors.As(err, &apiErr) {
+		return apiErr.IsSessionExpired()
 	}
 	return false
 }
