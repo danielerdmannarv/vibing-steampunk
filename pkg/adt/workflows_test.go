@@ -439,8 +439,8 @@ func TestExecuteABAPResult(t *testing.T) {
 		t.Errorf("Expected output 'Hello from SAP', got %s", result.Output[0])
 	}
 
-	if result.ExecutionTime != 1234 {
-		t.Errorf("Expected ExecutionTime 1234, got %d", result.ExecutionTime)
+	if result.ExecutionTime != 1234.0 {
+		t.Errorf("Expected ExecutionTime 1234.0, got %f", result.ExecutionTime)
 	}
 
 	if !result.CleanedUp {

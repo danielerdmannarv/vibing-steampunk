@@ -2,14 +2,12 @@ package adt
 
 import (
 	"context"
-	"crypto/rand"
 	"encoding/hex"
 	"encoding/xml"
 	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -46,27 +44,33 @@ const (
 )
 
 // terminalID is a unique identifier for this vsp session.
-// It's generated once per process and used for all breakpoint operations.
+// IMPORTANT: This must be deterministic across MCP tool calls since each call
+// may be a separate process. We use a fixed ID based on the username.
 var (
-	terminalID     string
-	terminalIDOnce sync.Once
+	terminalIDUser string // Set via SetTerminalIDUser for deterministic ID
 )
 
-// getTerminalID returns a unique terminal ID for this vsp session.
-// This is used by SAP to identify which IDE instance owns breakpoints
-// and where to route debug events.
+// SetTerminalIDUser sets the username used to generate a deterministic terminal ID.
+// This should be called early in the MCP server initialization.
+// If not set, a fixed default terminal ID will be used.
+func SetTerminalIDUser(user string) {
+	terminalIDUser = user
+}
+
+// getTerminalID returns a terminal ID for this vsp session.
+// Returns a deterministic ID based on the configured username.
+// This ensures the same terminal ID across all MCP tool calls.
 func getTerminalID() string {
-	terminalIDOnce.Do(func() {
-		// Generate a random 8-byte hex string prefixed with "vsp-"
-		b := make([]byte, 8)
-		if _, err := rand.Read(b); err != nil {
-			// Fallback to a simple identifier if random fails
-			terminalID = "vsp-default"
-			return
+	if terminalIDUser != "" {
+		// Deterministic: use hash of username for consistent ID across processes
+		h := make([]byte, 8)
+		for i, c := range terminalIDUser {
+			h[i%8] ^= byte(c)
 		}
-		terminalID = "vsp-" + hex.EncodeToString(b)
-	})
-	return terminalID
+		return "vsp-" + hex.EncodeToString(h)
+	}
+	// Fixed default - better than random for MCP scenarios
+	return "vsp-mcp-default"
 }
 
 // Breakpoint represents an ABAP debugger breakpoint.
@@ -277,18 +281,18 @@ func buildBreakpointRequestXML(req *BreakpointRequest) (string, error) {
 			if bp.Condition != "" {
 				attrs += fmt.Sprintf(` condition="%s"`, xmlEscape(bp.Condition))
 			}
-			bpElements = append(bpElements, fmt.Sprintf(`<dbg:breakpoint %s/>`, attrs))
+			bpElements = append(bpElements, fmt.Sprintf(`<breakpoint %s/>`, attrs))
 
 		case BreakpointKindException:
-			bpElements = append(bpElements, fmt.Sprintf(`<dbg:breakpoint kind="exception" exceptionClass="%s"/>`,
+			bpElements = append(bpElements, fmt.Sprintf(`<breakpoint kind="exception" exceptionClass="%s"/>`,
 				xmlEscape(bp.Exception)))
 
 		case BreakpointKindStatement:
-			bpElements = append(bpElements, fmt.Sprintf(`<dbg:breakpoint kind="statement" statement="%s"/>`,
+			bpElements = append(bpElements, fmt.Sprintf(`<breakpoint kind="statement" statement="%s"/>`,
 				xmlEscape(bp.Statement)))
 
 		case BreakpointKindMessage:
-			bpElements = append(bpElements, fmt.Sprintf(`<dbg:breakpoint kind="message" msgId="%s" msgTy="%s"/>`,
+			bpElements = append(bpElements, fmt.Sprintf(`<breakpoint kind="message" msgId="%s" msgTy="%s"/>`,
 				xmlEscape(bp.MessageID), xmlEscape(bp.MessageType)))
 		}
 	}

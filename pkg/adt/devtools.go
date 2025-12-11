@@ -380,7 +380,7 @@ type UnitTestMethod struct {
 	URI           string          `json:"uri"`
 	Type          string          `json:"type"`
 	Name          string          `json:"name"`
-	ExecutionTime int             `json:"executionTime"` // in microseconds
+	ExecutionTime float64         `json:"executionTime"` // in seconds
 	URIType       string          `json:"uriType,omitempty"`
 	NavigationURI string          `json:"navigationUri,omitempty"`
 	Unit          string          `json:"unit,omitempty"`
@@ -486,7 +486,7 @@ func parseUnitTestResult(data []byte) (*UnitTestResult, error) {
 		URI           string `xml:"uri,attr"`
 		Type          string `xml:"type,attr"`
 		Name          string `xml:"name,attr"`
-		ExecutionTime int    `xml:"executionTime,attr"`
+		ExecutionTime float64 `xml:"executionTime,attr"`
 		URIType       string `xml:"uriType,attr"`
 		NavigationURI string `xml:"navigationUri,attr"`
 		Unit          string `xml:"unit,attr"`

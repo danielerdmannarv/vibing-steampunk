@@ -2402,7 +2402,7 @@ type ExecuteABAPResult struct {
 	ProgramName   string   `json:"programName"`
 	Output        []string `json:"output"`        // Values returned via assertion messages
 	RawAlerts     []UnitTestAlert `json:"rawAlerts,omitempty"` // Full alert details for debugging
-	ExecutionTime int      `json:"executionTime"` // Execution time in microseconds
+	ExecutionTime float64  `json:"executionTime"` // Execution time in seconds
 	Message       string   `json:"message,omitempty"`
 	CleanedUp     bool     `json:"cleanedUp"`
 }

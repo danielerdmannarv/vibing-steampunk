@@ -112,6 +112,10 @@ func NewServer(cfg *Config) *Server {
 
 	adtClient := adt.NewClient(cfg.BaseURL, cfg.Username, cfg.Password, opts...)
 
+	// Set deterministic terminal ID for debugger operations
+	// This ensures breakpoints work across MCP tool calls (each is a separate process)
+	adt.SetTerminalIDUser(cfg.Username)
+
 	// Configure feature detection (safety network)
 	featureConfig := adt.FeatureConfig{
 		AbapGit:   parseFeatureMode(cfg.FeatureAbapGit),
@@ -4024,7 +4028,7 @@ func (s *Server) handleExecuteABAP(ctx context.Context, request mcp.CallToolRequ
 	var sb strings.Builder
 	sb.WriteString(fmt.Sprintf("Program: %s\n", result.ProgramName))
 	sb.WriteString(fmt.Sprintf("Success: %t\n", result.Success))
-	sb.WriteString(fmt.Sprintf("Execution Time: %d µs\n", result.ExecutionTime))
+	sb.WriteString(fmt.Sprintf("Execution Time: %.3f s\n", result.ExecutionTime))
 	sb.WriteString(fmt.Sprintf("Cleaned Up: %t\n", result.CleanedUp))
 	sb.WriteString(fmt.Sprintf("Message: %s\n", result.Message))
 
