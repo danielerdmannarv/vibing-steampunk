@@ -4,7 +4,13 @@ Unified WebSocket handler for vsp MCP server - enables stateful operations not a
 
 ## Status
 
-**EXPERIMENTAL** - This is optional custom ABAP code that breaks the "vanilla ADT" approach.
+**EXPERIMENTAL / DEPLOYED** - This is optional custom ABAP code that breaks the "vanilla ADT" approach.
+
+Objects deployed to SAP system:
+- `$ZADT_VSP` - Package ✅
+- `ZIF_VSP_SERVICE` - Interface ✅
+- `ZCL_VSP_RFC_SERVICE` - Class ✅
+- `ZCL_VSP_APC_HANDLER` - Class ✅
 
 ## Objects
 

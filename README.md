@@ -11,6 +11,13 @@
 
 ## What's New
 
+**Ongoing** - ZADT_VSP WebSocket Handler (Experimental)
+- **APC Handler**: Custom WebSocket endpoint for stateful SAP operations
+- **RFC Domain**: Search function modules, call RFCs with scalar parameters
+- **Extensible**: Domain-based routing for debug, RCA, events (planned)
+- **Non-vanilla**: Requires deploying custom ABAP objects to SAP system
+- See `abap/src/zadt_vsp/` for source and `docs/adr/003-zadt-vsp-apc-unified-handler.md` for design
+
 **v2.12.5** - EditSource Line Ending Fix
 - **CRLF→LF Normalization**: EditSource now works reliably across platforms
 - SAP ADT returns `\r\n`, AI sends `\n` - now automatically normalized
