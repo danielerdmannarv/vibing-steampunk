@@ -47,7 +47,7 @@
 - **7 UI5/BSP Tools**: List apps, read files, search content, view manifests
 - **AMDP Debugger**: 5 tools for HANA stored procedure debugging
 - **Tool Groups**: Selectively disable features (`--disabled-groups 5THD`)
-- **68 Total Tools**: 41 focused mode, 68 expert mode
+- **94 Total Tools**: 46 focused mode, 94 expert mode
 
 **v2.8.0** - Full Debug Session Support
 - **DebuggerAttach/Detach** - Attach to caught debuggees, release sessions
@@ -68,7 +68,7 @@
 
 ---
 
-**Single binary** with **41 focused tools** (default) or **68 expert tools** for AI-assisted ABAP development.
+**Single binary** with **46 focused tools** (default) or **94 expert tools** for AI-assisted ABAP development.
 
 ## Key Features
 
@@ -180,7 +180,7 @@ Add `.mcp.json` to your project:
 
 | Aspect | Focused (Default) | Expert |
 |--------|-------------------|--------|
-| **Tools** | 37 essential | 74 complete |
+| **Tools** | 46 essential | 94 complete |
 | **Token overhead** | ~2,500 | ~7,500 |
 | **Use case** | Daily development | Edge cases, debugging |
 | **Unified tools** | GetSource, WriteSource | + granular Get*/Write* |
@@ -288,17 +288,18 @@ See [AI-Powered RCA Workflows](reports/2025-12-05-013-ai-powered-rca-workflows.m
 
 ## Tools Reference
 
-**38 Focused Mode Tools:**
+**46 Focused Mode Tools:**
 - **Search:** SearchObject, GrepObjects, GrepPackages
 - **Read:** GetSource, GetTable, GetTableContents, RunQuery, GetPackage, GetFunctionGroup, GetCDSDependencies
-- **Debugger:** SetExternalBreakpoint, GetExternalBreakpoints, DeleteExternalBreakpoint, DebuggerListen, DebuggerAttach, DebuggerDetach, DebuggerStep, DebuggerGetStack, DebuggerGetVariables
+- **Debugger:** DebuggerListen, DebuggerAttach, DebuggerDetach, DebuggerStep, DebuggerGetStack, DebuggerGetVariables
+  - *Note: Breakpoints now managed via WebSocket (ZADT_VSP)*
 - **Write:** WriteSource, EditSource, ImportFromFile, ExportToFile
 - **Dev:** SyntaxCheck, RunUnitTests, RunATCCheck, LockObject, UnlockObject
 - **Intelligence:** FindDefinition, FindReferences
 - **System:** GetSystemInfo, GetInstalledComponents, GetCallGraph, GetObjectStructure, **GetFeatures**
 - **Diagnostics:** GetDumps, GetDump, ListTraces, GetTrace, GetSQLTraceState, ListSQLTraces
 
-See [README_TOOLS.md](README_TOOLS.md) for complete tool documentation (68 tools).
+See [README_TOOLS.md](README_TOOLS.md) for complete tool documentation (94 tools).
 
 <details>
 <summary><strong>Capability Matrix</strong></summary>

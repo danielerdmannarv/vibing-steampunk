@@ -355,7 +355,7 @@ When creating a new report:
 
 | Metric | Value |
 |--------|-------|
-| **Tools** | 77 (50 focused, 77 expert) |
+| **Tools** | 94 (46 focused, 94 expert) |
 | **Unit Tests** | 270 |
 | **Integration Tests** | 34 |
 | **Platforms** | 9 |
@@ -374,7 +374,7 @@ When creating a new report:
 | **ABAP Profiler** | ✅ Complete (ListTraces, GetTrace - ATRA) |
 | **SQL Trace** | ✅ Complete (GetSQLTraceState, ListSQLTraces - ST05) |
 | **RAP OData E2E** | ✅ Complete (DDLS, SRVD, SRVB create + publish) |
-| **External Debugger** | ⚠️ Limited (Breakpoints persist, listener works, but HTTP triggers unreliable - see report 2025-12-14-002) |
+| **External Debugger** | ⚠️ Limited (Listener + attach works; breakpoints via WebSocket ZADT_VSP only) |
 | **AMDP Debugger** | ⚠️ Experimental (Session works, breakpoints need investigation - expert mode only) |
 | **Transport Mgmt** | ✅ Complete (5 tools with safety controls - v2.11.0) |
 | **UI5/BSP Mgmt** | ✅ Partial (Read ops work; Create needs alternate API) |
