@@ -1,0 +1,298 @@
+# Roadmap: vsp Development Plan
+
+> Last Updated: 2025-12-21
+
+## Current Status: v2.13.0
+
+| Metric | Value |
+|--------|-------|
+| MCP Tools | 75+ |
+| Unit Tests | 270+ |
+| Platforms | Linux, macOS, Windows (x64, ARM64) |
+| Phase | 4 - Call Graph & RCA Tools |
+
+---
+
+## Completed Phases
+
+### Phase 1: Foundation (v1.x) ✅
+- [x] ADT client library in Go
+- [x] MCP server implementation
+- [x] Basic CRUD operations (read, write, lock, unlock)
+- [x] Syntax check and activation
+- [x] Unit test execution
+- [x] Cookie and basic authentication
+
+### Phase 2: Code Intelligence (v2.0-2.6) ✅
+- [x] Find definition and references
+- [x] Code completion
+- [x] Call graph analysis
+- [x] CDS dependency analysis
+- [x] Object structure exploration
+- [x] RAP OData E2E (DDLS, SRVD, SRVB)
+
+### Phase 3: Debugging & Diagnostics (v2.7-2.10) ✅
+- [x] External breakpoints (line, statement, exception)
+- [x] Debug listener (long-polling)
+- [x] Debugger attach/detach
+- [x] Stack inspection
+- [x] Variable inspection
+- [x] Step commands (into, over, return, continue)
+- [x] Short dumps (RABAX/ST22)
+- [x] ABAP Profiler (ATRA)
+- [x] SQL Traces (ST05)
+
+### Phase 4: Advanced Analysis (v2.11-2.13) ✅
+- [x] Transport management (5 tools)
+- [x] UI5/BSP management (7 tools)
+- [x] AMDP debugger (experimental)
+- [x] WebSocket handler (ZADT_VSP)
+- [x] Call graph traversal (GetCallersOf, GetCalleesOf)
+- [x] TraceExecution composite RCA tool
+- [x] Static vs actual call graph comparison
+
+---
+
+## In Progress: Phase 5
+
+### Phase 5: TAS-Style Debugging (Q1 2026)
+
+**Goal:** Scriptable, replayable debugging inspired by Tool-Assisted Speedruns.
+
+#### 5.1 Lua Scripting Integration
+- [ ] Integrate gopher-lua into vsp
+- [ ] Expose all MCP tools to Lua
+- [ ] Create Lua REPL for interactive debugging
+- [ ] Document scripting API
+
+```lua
+-- Target API
+while true do
+    local event = waitForBreakpoint(30)
+    if not event then break end
+    saveState("checkpoint_" .. event.hit_count)
+    stepOver()
+end
+```
+
+**Effort:** 2 weeks
+**Files:** `pkg/scripting/lua.go`, `internal/mcp/lua_bindings.go`
+
+#### 5.2 Variable History Recording
+- [ ] Design execution frame structure
+- [ ] Implement frame capture at each debug step
+- [ ] Delta compression for storage efficiency
+- [ ] "Show state at step N" command
+
+```go
+type ExecutionFrame struct {
+    StepNumber int
+    Location   CodeLocation
+    Variables  map[string]Variable
+    DBOps      []DBOperation
+    RFCCalls   []RFCCall
+}
+```
+
+**Effort:** 2 weeks
+**Files:** `pkg/adt/recorder.go`, `pkg/adt/history.go`
+
+#### 5.3 Checkpoint System
+- [ ] Serialize variable state to JSON
+- [ ] Store checkpoints locally
+- [ ] Restore checkpoint (variable inspection only)
+- [ ] Checkpoint management commands
+
+**Effort:** 1 week
+**Files:** `pkg/adt/checkpoint.go`
+
+#### 5.4 Watchpoint Scripting
+- [ ] Scriptable watchpoint conditions
+- [ ] Callback on variable change
+- [ ] Anomaly detection hooks
+
+**Effort:** 1 week
+
+---
+
+## Planned: Phase 6
+
+### Phase 6: Test Case Extraction (Q2 2026)
+
+**Goal:** Automatically generate reproducible tests from recorded executions.
+
+#### 6.1 Recording Storage
+- [ ] Design recording file format (JSON)
+- [ ] Implement recording index/search
+- [ ] Recording metadata (tags, date, object)
+- [ ] Storage management (cleanup, export)
+
+**Effort:** 1 week
+
+#### 6.2 Test Case Extractor
+- [ ] Extract inputs from entry frame
+- [ ] Extract outputs from exit frame
+- [ ] Identify external dependencies (DB, RFC, HTTP)
+- [ ] Generate mock specifications
+
+**Effort:** 2 weeks
+**Files:** `pkg/extraction/extractor.go`
+
+#### 6.3 ABAP Test Generator
+- [ ] Generate ABAP Unit test class
+- [ ] Generate mock setup code
+- [ ] Generate assertions from outputs
+- [ ] Handle table parameters
+
+**Effort:** 2 weeks
+**Files:** `pkg/extraction/abap_generator.go`
+
+#### 6.4 Mock Framework (ABAP-side)
+- [ ] Design ZCL_VSP_MOCK base class
+- [ ] DB mock implementation
+- [ ] RFC mock implementation
+- [ ] Mock verification
+
+**Effort:** 2 weeks
+**Files:** `embedded/abap/zcl_vsp_mock*.abap`
+
+---
+
+## Planned: Phase 7
+
+### Phase 7: Isolated Playground (Q3 2026)
+
+**Goal:** Fast, isolated test execution with mocked dependencies.
+
+#### 7.1 Playground Runtime
+- [ ] Load test case and mocks
+- [ ] Inject mock endpoints
+- [ ] Execute code unit
+- [ ] Collect results
+
+**Effort:** 2 weeks
+
+#### 7.2 Patch & Re-run
+- [ ] Apply code patches in-memory
+- [ ] Re-execute without save
+- [ ] Compare results
+- [ ] Commit patch when ready
+
+**Effort:** 1 week
+
+#### 7.3 Mock Strategies
+- [ ] VCR-style (exact replay)
+- [ ] Smart mocking (pattern-based)
+- [ ] AI-generated mocks
+
+**Effort:** 2 weeks
+
+#### 7.4 CLI Experience
+- [ ] Interactive playground REPL
+- [ ] `run`, `patch`, `diff`, `commit` commands
+- [ ] Execution time tracking
+- [ ] Coverage reporting
+
+**Effort:** 1 week
+
+---
+
+## Planned: Phase 8
+
+### Phase 8: Time-Travel Debugging (Q4 2026)
+
+**Goal:** Navigate backwards through execution history.
+
+#### 8.1 History Navigation
+- [ ] "Show state at step N" (view only)
+- [ ] "Find when X changed"
+- [ ] "Find when X became Y"
+- [ ] Jump to step
+
+**Effort:** 2 weeks
+
+#### 8.2 Temporal Queries
+- [ ] Query interface for execution history
+- [ ] Filter by variable, value, condition
+- [ ] Aggregate queries (count, first, last)
+
+**Effort:** 2 weeks
+
+#### 8.3 Branch Exploration (Experimental)
+- [ ] Fork execution at decision point
+- [ ] Explore alternate path
+- [ ] Compare outcomes
+
+**Effort:** 3 weeks
+
+---
+
+## Future: Phase 9+
+
+### Phase 9: AI Integration (2027)
+- [ ] AI-suggested breakpoints
+- [ ] Anomaly detection in traces
+- [ ] Automated hypothesis generation
+- [ ] Multi-agent debugging
+
+### Phase 10: Advanced Testing (2027)
+- [ ] Mutation testing
+- [ ] Property-based testing
+- [ ] Differential testing
+- [ ] Fuzzing integration
+
+### Phase 11: Production Features (2027+)
+- [ ] Self-healing workflows
+- [ ] Production trace analysis
+- [ ] Performance regression detection
+- [ ] Security vulnerability scanning
+
+---
+
+## Milestones
+
+| Milestone | Target | Description |
+|-----------|--------|-------------|
+| v2.14 | Jan 2026 | Lua scripting MVP |
+| v2.15 | Feb 2026 | Variable history recording |
+| v2.16 | Mar 2026 | Checkpoint/restore |
+| v3.0 | Apr 2026 | Test case extraction |
+| v3.1 | May 2026 | ABAP mock framework |
+| v3.2 | Jun 2026 | Isolated playground MVP |
+| v3.5 | Sep 2026 | Playground REPL |
+| v4.0 | Dec 2026 | Time-travel debugging |
+
+---
+
+## How to Contribute
+
+### Good First Issues
+- Add more MCP tools for existing ADT APIs
+- Improve error messages
+- Add integration tests
+- Documentation improvements
+
+### Medium Effort
+- Lua binding for specific tools
+- Recording format design
+- Mock framework design
+
+### Major Features
+- Scripting engine integration
+- Test extractor implementation
+- Playground runtime
+
+---
+
+## Design Documents
+
+| Phase | Document |
+|-------|----------|
+| 5-8 | [TAS-Style Debugging Vision](reports/2025-12-21-001-tas-scripting-time-travel-vision.md) |
+| 6-7 | [Test Extraction & Replay](reports/2025-12-21-002-test-extraction-isolated-replay.md) |
+| 4 | [Call Graph & RCA Tools](reports/2025-12-05-013-ai-powered-rca-workflows.md) |
+| 3 | [Debugger Deep Dive](reports/2025-12-11-002-adt-abap-debugger-deep-dive.md) |
+
+---
+
+*This roadmap is a living document. Priorities may shift based on community feedback and technical discoveries.*

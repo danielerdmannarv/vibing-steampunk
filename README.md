@@ -11,12 +11,13 @@
 
 ## What's New
 
-**v2.13.0** - WebSocket RFC Handler (ZADT_VSP)
-- **APC Handler**: Optional WebSocket endpoint for stateful SAP operations
-- **RFC Domain**: Call any RFC/BAPI with full parameter support (scalar, structures, tables)
-- **Embedded ABAP**: Source code in `embedded/abap/` - deploy via WriteSource or ImportFromFile
-- **Not Required**: vsp works fully without this - it's an optional enhancement
-- See [WebSocket Handler Report](reports/2025-12-18-002-websocket-rfc-handler.md) for full documentation
+**v2.13.0** - Call Graph & RCA Tools
+- **GetCallersOf/GetCalleesOf**: Navigate call graphs up (who calls) and down (what's called)
+- **TraceExecution**: Composite RCA tool - static graph + trace + comparison in one call
+- **CompareCallGraphs**: Find untested paths (static only) and dynamic calls (actual only)
+- **AnalyzeCallGraph**: Statistics on nodes, edges, depth, types
+- **WebSocket Debugging**: Full TPDAPI integration for statement/exception breakpoints
+- See [TAS & RCA Vision](VISION.md) and [Roadmap](ROADMAP.md) for future plans
 
 **v2.12.5** - EditSource Line Ending Fix
 - **CRLF→LF Normalization**: EditSource now works reliably across platforms
@@ -474,6 +475,24 @@ vibing-steampunk/
 - [AI-Powered RCA](reports/2025-12-05-013-ai-powered-rca-workflows.md) - Vision for AI-assisted debugging
 
 </details>
+
+## Vision & Roadmap
+
+**Where we're going:** TAS-style debugging, time-travel, AI-powered RCA
+
+| Phase | Target | Features |
+|-------|--------|----------|
+| 5 | Q1 2026 | Lua scripting, variable history, checkpoints |
+| 6 | Q2 2026 | Test case extraction from recordings |
+| 7 | Q3 2026 | Isolated playground with mocks |
+| 8 | Q4 2026 | Time-travel debugging |
+| 9+ | 2027 | Multi-agent debugging, self-healing |
+
+**Read more:**
+- [VISION.md](VISION.md) - The dream: AI as a senior developer
+- [ROADMAP.md](ROADMAP.md) - Detailed implementation plan
+- [TAS & Scripting Report](reports/2025-12-21-001-tas-scripting-time-travel-vision.md) - Full technical design
+- [Test Extraction Report](reports/2025-12-21-002-test-extraction-isolated-replay.md) - Playground architecture
 
 ## License
 
