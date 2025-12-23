@@ -9,6 +9,7 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+	"github.com/oisee/vibing-steampunk/embedded/abap"
 	"github.com/oisee/vibing-steampunk/pkg/adt"
 )
 
@@ -201,6 +202,9 @@ func (s *Server) registerTools(mode string, disabledGroups string) {
 		"G": { // Git/abapGit tools (via ZADT_VSP WebSocket)
 			"GitTypes", "GitExport",
 		},
+		"I": { // Install/Setup tools
+			"InstallZADTVSP",
+		},
 	}
 	// Map "U" to same tools as "5"
 	toolGroups["U"] = toolGroups["5"]
@@ -317,6 +321,9 @@ func (s *Server) registerTools(mode string, disabledGroups string) {
 		// Git/abapGit Integration (via ZADT_VSP WebSocket)
 		"GitTypes":  true, // List 158 supported object types
 		"GitExport": true, // Export packages/objects to abapGit ZIP
+
+		// Install/Setup tools
+		"InstallZADTVSP": true, // Deploy ZADT_VSP WebSocket handler to SAP
 	}
 
 	// Helper to check if tool should be registered
@@ -1904,6 +1911,24 @@ func (s *Server) registerTools(mode string, disabledGroups string) {
 				mcp.Description("Include subpackages when exporting by package (default: true)"),
 			),
 		), s.handleGitExport)
+	}
+
+	// --- Install/Setup Tools ---
+
+	// InstallZADTVSP
+	if shouldRegister("InstallZADTVSP") {
+		s.mcpServer.AddTool(mcp.NewTool("InstallZADTVSP",
+			mcp.WithDescription("Deploy ZADT_VSP WebSocket handler to SAP system. Creates package and deploys 6 ABAP objects (interface + 5 classes) that enable WebSocket debugging, RFC calls, and abapGit export. After deployment, manual SAPC and SICF setup is required."),
+			mcp.WithString("package",
+				mcp.Description("Target package name (default: $ZADT_VSP). Must be local package starting with $."),
+			),
+			mcp.WithBoolean("skip_git_service",
+				mcp.Description("Skip ZCL_VSP_GIT_SERVICE deployment if abapGit is not installed (default: false, auto-detected)"),
+			),
+			mcp.WithBoolean("check_only",
+				mcp.Description("Only check prerequisites without deploying (default: false)"),
+			),
+		), s.handleInstallZADTVSP)
 	}
 
 }
@@ -5211,6 +5236,169 @@ func (s *Server) handleGitExport(ctx context.Context, request mcp.CallToolReques
 
 	sb.WriteString(fmt.Sprintf("\nZIP Base64 length: %d chars\n", len(result.ZipBase64)))
 	sb.WriteString("Use base64 decode to extract the ZIP file.\n")
+
+	return mcp.NewToolResultText(sb.String()), nil
+}
+
+func (s *Server) handleInstallZADTVSP(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	// Parse parameters
+	packageName := "$ZADT_VSP"
+	if pkg, ok := request.Params.Arguments["package"].(string); ok && pkg != "" {
+		packageName = strings.ToUpper(pkg)
+	}
+
+	skipGitService := false
+	if skip, ok := request.Params.Arguments["skip_git_service"].(bool); ok {
+		skipGitService = skip
+	}
+
+	checkOnly := false
+	if check, ok := request.Params.Arguments["check_only"].(bool); ok {
+		checkOnly = check
+	}
+
+	// Validate package name
+	if !strings.HasPrefix(packageName, "$") {
+		return newToolResultError("Package name must start with $ (local package)"), nil
+	}
+
+	var sb strings.Builder
+	sb.WriteString("ZADT_VSP Installation\n")
+	sb.WriteString("=====================\n\n")
+
+	// Phase 1: Check prerequisites
+	sb.WriteString("Checking prerequisites...\n")
+
+	// Check if package exists
+	packageExists := false
+	_, err := s.adtClient.GetPackage(ctx, packageName)
+	if err == nil {
+		packageExists = true
+		sb.WriteString(fmt.Sprintf("  ✓ Package %s exists\n", packageName))
+	} else {
+		sb.WriteString(fmt.Sprintf("  → Package %s will be created\n", packageName))
+	}
+
+	// Check for abapGit (for Git service)
+	hasAbapGit := false
+	results, err := s.adtClient.SearchObject(ctx, "ZCL_ABAPGIT_OBJECTS", 1)
+	if err == nil && len(results) > 0 {
+		hasAbapGit = true
+		sb.WriteString("  ✓ abapGit detected → Git service will be deployed\n")
+	} else {
+		sb.WriteString("  ⚠ abapGit not detected → Git service will be skipped\n")
+		skipGitService = true
+	}
+
+	// Check existing objects
+	objects := embedded.GetObjects()
+	existingObjects := []string{}
+	for _, obj := range objects {
+		results, err := s.adtClient.SearchObject(ctx, obj.Name, 1)
+		if err == nil && len(results) > 0 {
+			existingObjects = append(existingObjects, obj.Name)
+		}
+	}
+	if len(existingObjects) > 0 {
+		sb.WriteString(fmt.Sprintf("  ⚠ Existing objects will be updated: %s\n", strings.Join(existingObjects, ", ")))
+	}
+
+	sb.WriteString("\n")
+
+	// If check_only, stop here
+	if checkOnly {
+		sb.WriteString("Check complete (--check_only mode, no changes made).\n\n")
+		sb.WriteString("Objects to deploy:\n")
+		for i, obj := range objects {
+			if obj.Optional && skipGitService && obj.Name == "ZCL_VSP_GIT_SERVICE" {
+				sb.WriteString(fmt.Sprintf("  [%d/%d] %s - SKIP (no abapGit)\n", i+1, len(objects), obj.Name))
+			} else {
+				sb.WriteString(fmt.Sprintf("  [%d/%d] %s - %s\n", i+1, len(objects), obj.Name, obj.Description))
+			}
+		}
+		return mcp.NewToolResultText(sb.String()), nil
+	}
+
+	// Phase 2: Create package if needed
+	if !packageExists {
+		sb.WriteString(fmt.Sprintf("Creating package %s...\n", packageName))
+		createOpts := adt.CreateObjectOptions{
+			ObjectType:  adt.ObjectTypePackage,
+			Name:        packageName,
+			Description: "VSP WebSocket Handler",
+		}
+		err := s.adtClient.CreateObject(ctx, createOpts)
+		if err != nil {
+			return newToolResultError(fmt.Sprintf("Failed to create package: %v", err)), nil
+		}
+		sb.WriteString(fmt.Sprintf("  ✓ Package %s created\n\n", packageName))
+	} else {
+		sb.WriteString(fmt.Sprintf("Using existing package %s\n\n", packageName))
+	}
+
+	// Phase 3: Deploy objects
+	sb.WriteString("Deploying ABAP objects...\n")
+
+	deployed := []string{}
+	skipped := []string{}
+	failed := []string{}
+
+	for i, obj := range objects {
+		// Skip Git service if no abapGit
+		if obj.Name == "ZCL_VSP_GIT_SERVICE" && skipGitService {
+			sb.WriteString(fmt.Sprintf("  [%d/%d] %s ⊘ Skipped (no abapGit)\n", i+1, len(objects), obj.Name))
+			skipped = append(skipped, obj.Name)
+			continue
+		}
+
+		sb.WriteString(fmt.Sprintf("  [%d/%d] %s ", i+1, len(objects), obj.Name))
+
+		// Use WriteSource to create/update
+		opts := &adt.WriteSourceOptions{
+			Package: packageName,
+			Mode:    adt.WriteModeUpsert,
+		}
+		_, err := s.adtClient.WriteSource(ctx, obj.Type, obj.Name, obj.Source, opts)
+		if err != nil {
+			sb.WriteString(fmt.Sprintf("✗ Failed: %v\n", err))
+			failed = append(failed, obj.Name+": "+err.Error())
+		} else {
+			sb.WriteString("✓ Deployed\n")
+			deployed = append(deployed, obj.Name)
+		}
+	}
+
+	sb.WriteString("\n")
+
+	// Summary
+	sb.WriteString("═══════════════════════════════════════════════════════════════════════════════\n")
+	if len(failed) > 0 {
+		sb.WriteString("  DEPLOYMENT PARTIALLY FAILED\n")
+		sb.WriteString("═══════════════════════════════════════════════════════════════════════════════\n\n")
+		sb.WriteString("Failed objects:\n")
+		for _, f := range failed {
+			sb.WriteString(fmt.Sprintf("  • %s\n", f))
+		}
+	} else {
+		sb.WriteString("  DEPLOYMENT COMPLETE - Manual Steps Required\n")
+		sb.WriteString("═══════════════════════════════════════════════════════════════════════════════\n")
+	}
+
+	sb.WriteString(fmt.Sprintf("\nDeployed: %d, Skipped: %d, Failed: %d\n\n", len(deployed), len(skipped), len(failed)))
+
+	// Post-deployment instructions
+	sb.WriteString(embedded.PostDeploymentInstructions())
+
+	// Features unlocked
+	sb.WriteString("\nFeatures unlocked:\n")
+	sb.WriteString("  ✓ WebSocket debugging (TPDAPI)\n")
+	sb.WriteString("  ✓ RFC/BAPI execution\n")
+	sb.WriteString("  ✓ AMDP debugging (experimental)\n")
+	if hasAbapGit && !skipGitService {
+		sb.WriteString("  ✓ abapGit export (158 object types)\n")
+	} else {
+		sb.WriteString("  ✗ abapGit export (install abapGit first)\n")
+	}
 
 	return mcp.NewToolResultText(sb.String()), nil
 }
