@@ -11,6 +11,14 @@
 
 ## What's New
 
+**v2.19.0** - Interactive CLI Debugger
+- **`vsp debug` Command**: Standalone interactive ABAP debugger
+- **REPL Interface**: s=step, n=next, o=out, c=continue, r=stack, v=vars
+- **WebSocket Breakpoints**: Set/delete/list via ZADT_VSP
+- **Attach Mode**: Wait for any debuggee or filter by user
+- **Graceful Handling**: Ctrl+C cleanup, session state management
+- Phase 1 of DAP implementation - see [DAP Plan](reports/2026-01-03-001-dap-implementation-plan.md)
+
 **v2.18.0** - Report Execution Tools
 - **RunReport**: Execute selection-screen reports with params/variants, capture ALV output
 - **GetVariants**: List available variants for a report

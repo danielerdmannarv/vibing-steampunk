@@ -11,7 +11,7 @@
 
 | Rank | Feature | Effort | Impact | Status | Notes |
 |------|---------|--------|--------|--------|-------|
-| 1 | `/debug` skill | 2h | High | Planned | Orchestrate existing debug tools with AI guidance |
+| 1 | `vsp debug` CLI | 2h | High | **Done** | Interactive CLI debugger ([commit f1358e9](https://github.com/oisee/vibing-steampunk/commit/f1358e9)) |
 | 2 | RunReport via FM | 2h | Medium | Planned | Create ZADT_RUN_REPORT FM to avoid APC blocking |
 | 3 | GetMessages tool | 1h | Medium | Planned | Read message class texts (SE91/MSAG) |
 | 4 | CompareSource tool | 2h | Medium | Planned | Diff two versions/objects |
