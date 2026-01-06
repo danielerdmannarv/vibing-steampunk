@@ -18,8 +18,8 @@
 | 5 | CloneObject tool | 2h | Medium | **Done** | Copy PROG/CLAS/INTF to new name - v2.19 |
 | 6 | CreateTable tool | 2h | Medium | **Done** | Create DDIC tables from JSON - v2.19 |
 | 7 | GetClassInfo tool | 1h | Low | **Done** | Quick class metadata via CAI - v2.19 |
-| 8 | Heading texts in SetTextElements | 1h | Low | Planned | Add list/column headers support |
-| 9 | Tool aliases | 1h | Low | Planned | Short names: `gs` → GetSource, `ws` → WriteSource |
+| 8 | Heading texts in SetTextElements | 1h | Low | **Done** | Add list/column headers support - v2.19.1 |
+| 9 | Tool aliases | 1h | Low | **Done** | 13 short names: `gs`, `ws`, `es`, `so`, `sc`, `act`, `rut`, `atc`, `go`, `gos`, `gp`, `gps`, `rq` - v2.19.1 |
 
 ## Mid Wins (1-3 days each)
 
@@ -69,9 +69,10 @@
 
 ---
 
-## Completed Features (v2.19.0)
+## Completed Features (v2.19.1)
 
 For reference, recently completed:
+- **v2.19.1**: Tool aliases (13 short names), Heading texts in SetTextElements, WebSocket TLS fix (#1)
 - **v2.19.0**: CreateTable, GetMessages, CompareSource, CloneObject, GetClassInfo, GetSystemInfo fix
 - Report Execution: RunReport, GetVariants, GetTextElements, SetTextElements
 - abapGit Export: GitTypes, GitExport (158 object types)
