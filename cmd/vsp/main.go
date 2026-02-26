@@ -52,7 +52,7 @@ func init() {
 	// Load .env file if it exists
 	godotenv.Load()
 
-	// Service URL
+	// Service URL and config
 	rootCmd.Flags().StringVar(&cfg.BaseURL, "url", "", "SAP system URL (e.g., https://host:44300)")
 	rootCmd.Flags().StringVar(&cfg.BaseURL, "service", "", "SAP system URL (alias for --url)")
 
@@ -97,10 +97,14 @@ func init() {
 	// Debugger configuration
 	rootCmd.Flags().StringVar(&cfg.TerminalID, "terminal-id", "", "SAP GUI terminal ID for cross-tool breakpoint sharing")
 
+	// Configuration file
+	rootCmd.Flags().String("vsp_config", "", "Path to .vsp.json configuration file")
+
 	// Output options
 	rootCmd.Flags().BoolVarP(&cfg.Verbose, "verbose", "v", false, "Enable verbose output to stderr")
 
 	// Bind flags to viper for environment variable support
+	viper.BindPFlag("vsp_config", rootCmd.Flags().Lookup("vsp_config"))
 	viper.BindPFlag("url", rootCmd.Flags().Lookup("url"))
 	viper.BindPFlag("user", rootCmd.Flags().Lookup("user"))
 	viper.BindPFlag("password", rootCmd.Flags().Lookup("password"))
@@ -164,6 +168,10 @@ func runServer(cmd *cobra.Command, args []string) error {
 		if cfg.DisabledGroups != "" {
 			fmt.Fprintf(os.Stderr, "[VERBOSE] Disabled groups: %s (5/U=UI5, T=Tests, H=HANA, D=Debug)\n", cfg.DisabledGroups)
 		}
+		// Show config file path if being used
+		if configPath, err := resolveConfigPath(cmd); err == nil && configPath != "" {
+			fmt.Fprintf(os.Stderr, "[VERBOSE] Config file: %s\n", configPath)
+		}
 		fmt.Fprintf(os.Stderr, "[VERBOSE] SAP URL: %s\n", cfg.BaseURL)
 		fmt.Fprintf(os.Stderr, "[VERBOSE] SAP Client: %s\n", cfg.Client)
 		fmt.Fprintf(os.Stderr, "[VERBOSE] SAP Language: %s\n", cfg.Language)
@@ -201,7 +209,15 @@ func runServer(cmd *cobra.Command, args []string) error {
 	}
 
 	// Load granular tool visibility from .vsp.json if present
-	if systemsCfg, configPath, err := config.LoadSystems(); err == nil && systemsCfg != nil {
+	configPath, _ := resolveConfigPath(cmd)
+	var systemsCfg *config.SystemsConfig
+	var err error
+	if configPath != "" {
+		systemsCfg, err = config.LoadSystemsFromFile(configPath)
+	} else {
+		systemsCfg, configPath, err = config.LoadSystems()
+	}
+	if err == nil && systemsCfg != nil {
 		if systemsCfg.Tools != nil {
 			cfg.ToolsConfig = systemsCfg.Tools
 			if cfg.Verbose {
@@ -468,6 +484,34 @@ func splitCommaSeparated(s string) []string {
 		}
 	}
 	return result
+}
+
+// resolveConfigPath resolves the path to the .vsp.json config file.
+// Priority: --vsp_config flag > VSP_CONFIG env var > empty string (use default search)
+func resolveConfigPath(cmd *cobra.Command) (string, error) {
+	// Check CLI flag first
+	if cmd.Flags().Changed("vsp_config") {
+		configPath, _ := cmd.Flags().GetString("vsp_config")
+		if configPath != "" {
+			// Verify the file exists
+			if _, err := os.Stat(configPath); err != nil {
+				return "", fmt.Errorf("config file not found: %s", configPath)
+			}
+			return configPath, nil
+		}
+	}
+
+	// Check environment variable (VSP_CONFIG, without SAP prefix)
+	if configPath := os.Getenv("VSP_CONFIG"); configPath != "" {
+		// Verify the file exists
+		if _, err := os.Stat(configPath); err != nil {
+			return "", fmt.Errorf("config file not found: %s", configPath)
+		}
+		return configPath, nil
+	}
+
+	// No explicit config path specified
+	return "", nil
 }
 
 func main() {
