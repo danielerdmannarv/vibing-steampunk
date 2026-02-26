@@ -13,10 +13,13 @@ type DependencyInfo struct {
 
 // DeploymentObject represents a single ABAP object to deploy
 type DeploymentObject struct {
-	Type     string // Object type (PROG, CLAS, INTF, etc.)
-	Name     string // Object name
-	FileName string // Source file name
-	Content  string // File content or path
+	Type        string            // Object type (PROG, CLAS, INTF, etc.)
+	Name        string            // Object name
+	FileName    string            // Source file name
+	Content     string            // File content or path
+	Description string            // Object description
+	MainSource  string            // Main source code content
+	Includes    map[string]string // Include files (e.g., "CCDEF" -> "code")
 }
 
 // DeploymentPlan describes objects to deploy from a source
