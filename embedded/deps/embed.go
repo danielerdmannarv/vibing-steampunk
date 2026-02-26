@@ -79,3 +79,4 @@ func CreateDeploymentPlan(source, packageName string, files []FileEntry) *Deploy
 	plan.TotalObjects = 0
 
 	return plan
+}
