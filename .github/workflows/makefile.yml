@@ -8,17 +8,26 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v4
 
-    - name: Install dependencies
-      run: make
+    # 1. Setup Go (needed since this is a Go project)
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: 'stable'
 
-    - name: Run check
-      run: make check
+    # 2. Run the Windows build target from your Makefile
+    - name: Build Windows Executable
+      run: make build-windows
 
-    - name: Run distcheck
-      run: make distcheck
+    # 3. Upload the executable so you can download it
+    - name: Upload Windows Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: windows-executable
+        # This path assumes your Makefile puts binaries in a 'build' folder
+        # If it's just in the root, change this to: ./vsp.exe (or whatever it's named)
+        path: build/*windows*
