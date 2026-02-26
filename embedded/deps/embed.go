@@ -1,27 +1,12 @@
 package deps
 
-import (
-	_ "embed" // Required for embedding
-	// ... keep your other imports ...
-)
-
-// Add these to embed the files
-//go:embed abapgit-standalone.zip
-var abapGitStandalone []byte
-
-//go:embed abapgit-dev.zip
-var abapGitDev []byte
+// Placeholder for dependency management
+// Note: abapgit-standalone.zip and abapgit-dev.zip are not embedded in this version
 
 // GetDependencyZIP returns the byte slice for a given source name
 func GetDependencyZIP(name string) []byte {
-	switch name {
-	case "abapgit-standalone":
-		return abapGitStandalone
-	case "abapgit-dev":
-		return abapGitDev
-	default:
-		return nil
-	}
+	// Dependencies are fetched at runtime or via external sources
+	return nil
 }
 
 // Update GetAvailableDependencies to reflect that they are now available
@@ -31,13 +16,13 @@ func GetAvailableDependencies() []DependencyInfo {
 			Name:        "abapgit-standalone",
 			Description: "abapGit standalone program",
 			Package:     "$ABAPGIT",
-			Available:   true, // Now true because we embedded it
+			Available:   false, // Not embedded - requires external source
 		},
 		{
 			Name:        "abapgit-dev",
 			Description: "abapGit developer edition",
 			Package:     "$ZGIT_DEV",
-			Available:   true, // Now true because we embedded it
+			Available:   false, // Not embedded - requires external source
 		},
 	}
 }
